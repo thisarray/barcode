@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+
+<html lang="en-US">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Universal Product Code (UPC) Barcode</title>
+  <style type="text/css" media="screen">
+body {
+  background-color: white;
+  color: black;
+}
+output {
+  display: block;
+  margin: 1em;
+}
+pre {
+  background-color: white;
+  color: black;
+  font-family: "Courier New", monospace;
+  font-size: 16px;
+  line-height: 16px;
+  text-transform: full-width;
+}
+table {
+  border-collapse: collapse;
+  font-size: 16px;
+  line-height: 16px;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+}
+td {
+  background-color: white;
+  color: black;
+  height: 18px;
+  width: 2px;
+}
+.bar {
+  background-color: black;
+}
+  </style>
+</head>
+
+<body>
+
+<main>
+<h1>Universal Product Code (UPC) Barcode</h1>
+
+<form id="upcaForm" name="upcaForm" action="" method="get">
+<p><label for="upcaNumber">UPC-A number:</label>
+<input type="text" id="upcaNumber" name="upcaNumber" autofocus required maxlength="12" minlength="12" pattern="[0-9]{12,12}" placeholder="042100005264" spellcheck="false">
+<button type="submit">Draw</button></p>
+</form>
+
+<article>
+<p><a href="https://en.wikipedia.org/wiki/Universal_Product_Code" target="_blank">UPC-A</a>
+consists of 12 numeric digits represented by strips of black bars and white spaces.</p>
+
+<output id="upcaBarcode" name="upca" for="upcaNumber"></output>
+
+<p>Every UPC-A code can be easily converted to the equivalent
+<a href="https://en.wikipedia.org/wiki/International_Article_Number_(EAN)" target="_blank">EAN-13</a>
+code by prepending "0" to the UPC-A code.</p>
+
+<output id="eanBarcode" name="ean"></output>
+</article>
+</main>
+
+<script>
+/*
+ * Regular expression matching a valid number: string of digits.
+ */
+const NUMBER_REGULAR_EXPRESSION = /^(\d{12,12})$/;
+
+/*
+ * Regular expression matching a valid pattern: string of "0" and "1".
+ */
+const PATTERN_REGULAR_EXPRESSION = /^([01]+)$/;
+
+/*
+ * Width of each bar in number of pixels (also known as the x-dimension for UPC-A).
+ */
+const X_DIMENSION = 2;
+
+/*
+ * Map from a character for UPC-A to its module pattern.
+ */
+const UPCA_MAP = new Map([
+  ['Q', '0'.repeat(9)],
+  ['S', '101'],
+  ['M', '01010'],
+  ['E', '101'],
+  ['0', '0001101'],
+  ['1', '0011001'],
+  ['2', '0010011'],
+  ['3', '0111101'],
+  ['4', '0100011'],
+  ['5', '0110001'],
+  ['6', '0101111'],
+  ['7', '0111011'],
+  ['8', '0110111'],
+  ['9', '0001011']
+]);
+
+function isNumber(str) {
+  return NUMBER_REGULAR_EXPRESSION.test(str);
+}
+
+function isPattern(str) {
+  return PATTERN_REGULAR_EXPRESSION.test(str);
+}
+
+/*
+ * Invert a module pattern.
+ */
+function invert(pattern) {
+  console.assert(isPattern(pattern),
+                 {msg: 'pattern must contain only "0" and "1".'});
+  let inverse = [];
+  for (let c of pattern) {
+    if (c == '0') {
+      inverse.push('1');
+    }
+    else if (c == '1') {
+      inverse.push('0');
+    }
+  }
+  return inverse.join('');
+}
+
+console.log(invert('0101'));
+
+function numberToUPCA(upcNumber) {
+  console.assert(isNumber(upcNumber),
+                 {msg: 'upcNumber contains non-digit characters.'});
+  let module = [UPCA_MAP.get('Q'), UPCA_MAP.get('S')],
+      i = 0;
+  for (let c of upcNumber) {
+    let pattern = UPCA_MAP.get(c);
+    if (i >= 6) {
+      if (i == 6) {
+        module.push(UPCA_MAP.get('M'));
+      }
+      pattern = invert(pattern);
+    }
+    module.push(pattern);
+    i += 1;
+  }
+  module.push(UPCA_MAP.get('E'));
+  module.push(UPCA_MAP.get('Q'));
+  return module.join('');
+}
+
+console.log(numberToUPCA('042100005264'));
+
+class Display {
+  constructor(parent) {
+    if (!(parent instanceof Node)) {
+      throw new TypeError('Bad DOM parent.');
+    }
+    this.parent = parent;
+  }
+  draw(barcode) {
+    console.assert(false, {msg: 'Not implemented'});
+  }
+}
+
+class ASCIIDisplay extends Display {
+  draw(barcode) {
+    let target = this.parent.querySelector('pre');
+    if (target == null) {
+      this.parent.innerHTML = '';
+      target = document.createElement('pre');
+      this.parent.appendChild(target);
+    }
+
+    let result = [];
+    for (let c of barcode) {
+      if (c == '0') {
+        result.push(' ');
+      }
+      else if (c == '1') {
+        result.push('|');
+      }
+    }
+    target.textContent = result.join('');
+  }
+}
+
+class CanvasDisplay extends Display {
+  draw(barcode) {
+    let target = this.parent.querySelector('canvas');
+    if (target == null) {
+      this.parent.innerHTML = '';
+      target = document.createElement('canvas');
+      this.parent.appendChild(target);
+    }
+    let width = barcode.length * X_DIMENSION,
+        height = barcode.length;
+    if ((target.width != width) || (target.height != height)) {
+      target.width = width;
+      target.height = height;
+    }
+
+    let context = target.getContext('2d'),
+        x = 0;
+    context.clearRect(0, 0, width, height);
+    for (let c of barcode) {
+      if (c == '1') {
+        context.fillRect(x, 0, X_DIMENSION, height);
+      }
+      x += X_DIMENSION;
+    }
+  }
+}
+
+class TableDisplay extends Display {
+  draw(barcode) {
+    let target = this.parent.querySelector('table');
+    if (target == null) {
+      this.parent.innerHTML = '';
+      target = document.createElement('table');
+      this.parent.appendChild(target);
+    }
+
+    let row = [];
+    row.push('  <tr>');
+    for (let c of barcode) {
+      if (c == '0') {
+        row.push('  <td></td>');
+      }
+      else if (c == '1') {
+        row.push('  <td class="bar"></td>');
+      }
+    }
+    row.push('  </tr>');
+    target.innerHTML = row.join('\n');
+  }
+}
+
+let form = document.querySelector('#upcaForm');
+form.addEventListener('submit', (event) => {
+  let output = document.querySelector('#upcaBarcode'),
+//      display = new ASCIIDisplay(output);
+      display = new CanvasDisplay(output);
+//      display = new TableDisplay(output);
+  display.draw(numberToUPCA(form.upcaNumber.value));
+  event.preventDefault();
+});
+</script>
+</body>
+
+</html>
