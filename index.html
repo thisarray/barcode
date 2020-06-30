@@ -14,31 +14,6 @@ output {
   display: block;
   margin: 1em;
 }
-pre {
-  background-color: white;
-  color: black;
-  font-family: "Courier New", monospace;
-  font-size: 16px;
-  line-height: 16px;
-  text-transform: full-width;
-}
-table {
-  border-collapse: collapse;
-  font-size: 16px;
-  line-height: 16px;
-  margin: 0;
-  padding: 0;
-  text-align: center;
-}
-td {
-  background-color: white;
-  color: black;
-  height: 18px;
-  width: 2px;
-}
-.bar {
-  background-color: black;
-}
   </style>
 </head>
 
@@ -48,8 +23,8 @@ td {
 <h1>Universal Product Code (UPC) Barcode</h1>
 
 <form id="barcodeForm" name="barcodeForm" action="" method="get">
-<p><label for="upcaNumber">UPC-A number:</label>
-<input type="text" id="upcaNumber" name="upcaNumber" autofocus required maxlength="12" minlength="12" pattern="[0-9]{12,12}" placeholder="042100005264" spellcheck="false">
+<p><label for="number">UPC-A or EAN-13 number:</label>
+<input type="text" id="number" name="number" autofocus required maxlength="13" minlength="12" pattern="[0-9]{12,13}" placeholder="042100005264" spellcheck="false">
 <button type="submit">Draw</button></p>
 </form>
 
@@ -146,7 +121,7 @@ const UPCE_MAP = new Map([
 /*
  * Return if str is a length long string of digits.
  */
-function isNumber(str, length) {
+function isNumber(str, length = -1) {
   if ((length === undefined) || (length <= 0)) {
     return NUMBER_REGULAR_EXPRESSION.test(str);
   }
@@ -159,7 +134,7 @@ function isNumber(str, length) {
 /*
  * Return if str is a length long string of "0" and "1".
  */
-function isPattern(str, length) {
+function isPattern(str, length = -1) {
   if ((length === undefined) || (length <= 0)) {
     return PATTERN_REGULAR_EXPRESSION.test(str);
   }
@@ -224,7 +199,7 @@ function numberToUPCE(num) {
       module = [UPCE_MAP.get('S')],
       i = 0;
   if ((system != '0') && (system != '1') && (!productNumber.includes('0000'))) {
-    return '';
+    return ['', ''];
   }
   if (productNumber.substring(3, 8) == '00000') {
     // UPC-E numerical pattern 0
@@ -255,7 +230,7 @@ function numberToUPCE(num) {
     upcE = productNumber.substring(1, 6) + productNumber.substring(10, 11);
   }
   else {
-    return '';
+    return ['', ''];
   }
 
   if (system == '1') {
@@ -270,7 +245,7 @@ function numberToUPCE(num) {
     i += 1;
   }
   module.push(UPCE_MAP.get('E'));
-  return module.join('');
+  return [module.join(''), upcE];
 }
 
 /*
@@ -346,108 +321,112 @@ function test() {
                  {msg: 'numberToUPCA() is incorrect.'});
 
   for (let value of ['', '2', '3', '4', '5', '6', '7', '8', '9', '1234']) {
-    console.assert(numberToUPCE(value) == '',
+    let [barcode, upcE] = numberToUPCE(value);
+    console.assert(barcode == '',
+                   {msg: 'numberToUPCE() is incorrect.'});
+    console.assert(upcE == '',
                    {msg: 'numberToUPCE() is incorrect.'});
   }
-  console.assert(numberToUPCE('065100004327') == '101000010101100010011101011110100110110011001010101',
+  let [barcode, upcE] = numberToUPCE('065100004327');
+  console.assert(barcode == '101000010101100010011101011110100110110011001010101',
                  {msg: 'numberToUPCE() is incorrect.'});
-  console.assert(numberToUPCE('165100004324') == '101010111101110010100011011110100110110110011010101',
+  console.assert(upcE == '654321',
+                 {msg: 'numberToUPCE() is incorrect.'});
+  [barcode, upcE] = numberToUPCE('165100004324');
+  console.assert(barcode == '101010111101110010100011011110100110110110011010101',
+                 {msg: 'numberToUPCE() is incorrect.'});
+  console.assert(upcE == '654321',
                  {msg: 'numberToUPCE() is incorrect.'});
 }
 test();
 
-class Display {
-  constructor(parent) {
-    if (!(parent instanceof Node)) {
-      throw new TypeError('Bad DOM parent.');
-    }
-    this.parent = parent;
+function drawBarcode(parentID, barcode, height) {
+  let parent = document.querySelector(parentID),
+      target = parent.querySelector('canvas'),
+      width = barcode.length * X_DIMENSION;
+  if (target == null) {
+    parent.innerHTML = '';
+    target = document.createElement('canvas');
+    parent.appendChild(target);
   }
-  draw(barcode) {
-    console.assert(false, {msg: 'Not implemented'});
+  if ((target.width != width) || (target.height != height)) {
+    target.width = width;
+    target.height = height;
+  }
+
+  let context = target.getContext('2d'),
+      x = 0;
+  context.clearRect(0, 0, width, height);
+  for (let c of barcode) {
+    if (c == '1') {
+      context.fillRect(x, 0, X_DIMENSION, height);
+    }
+    x += X_DIMENSION;
+  }
+
+  return context;
+}
+
+function drawUPCA(parentID, num) {
+  let barcode = numberToUPCA(num),
+      height = barcode.length,
+      context = drawBarcode(parentID, barcode, height),
+      baseline = height - 6;
+  context.font = '16px serif';
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.direction = 'ltr';
+  context.clearRect(12 * X_DIMENSION, height - 16, 6 * 7 * X_DIMENSION, 16);
+  context.clearRect((17 + (6 * 7)) * X_DIMENSION, height - 16, 6 * 7 * X_DIMENSION, 16);
+  context.fillText(num.substring(0, 1), 4 * X_DIMENSION, baseline);
+  if (isNumber(num, 13)) {
+    // EAN-13 has all 12 digits at the bottom
+    context.fillText(num.substring(1, 7), (12 + (3 * 7)) * X_DIMENSION, baseline);
+    context.fillText(num.substring(7, 13), (17 + (9 * 7)) * X_DIMENSION, baseline);
+  }
+  else {
+    context.fillText(num.substring(1, 6), (12 + (3 * 7)) * X_DIMENSION, baseline);
+    context.fillText(num.substring(6, 11), (17 + (9 * 7)) * X_DIMENSION, baseline);
+    context.fillText(num.substring(11), (barcode.length - 4) * X_DIMENSION, baseline);
   }
 }
 
-class ASCIIDisplay extends Display {
-  draw(barcode) {
-    let target = this.parent.querySelector('pre');
-    if (target == null) {
-      this.parent.innerHTML = '';
-      target = document.createElement('pre');
-      this.parent.appendChild(target);
-    }
-
-    let result = [];
-    for (let c of barcode) {
-      if (c == '0') {
-        result.push(' ');
-      }
-      else if (c == '1') {
-        result.push('|');
-      }
-    }
-    target.textContent = result.join('');
+function drawUPCE(parentID, num) {
+  let [barcode, upcE] = numberToUPCE(num),
+      height = barcode.length;
+  if (height > 0) {
+    let context = drawBarcode(parentID, barcode, height);
+    context.font = '12px serif';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.direction = 'ltr';
+    context.clearRect(3 * X_DIMENSION, height - 12, 6 * 7 * X_DIMENSION, 12);
+    context.fillText(upcE, (3 + (3 * 7)) * X_DIMENSION, height - 4)
   }
-}
-
-class CanvasDisplay extends Display {
-  draw(barcode) {
-    let target = this.parent.querySelector('canvas');
-    if (target == null) {
-      this.parent.innerHTML = '';
-      target = document.createElement('canvas');
-      this.parent.appendChild(target);
-    }
-    let width = barcode.length * X_DIMENSION,
-        height = barcode.length;
-    if ((target.width != width) || (target.height != height)) {
-      target.width = width;
-      target.height = height;
-    }
-
-    let context = target.getContext('2d'),
-        x = 0;
-    context.clearRect(0, 0, width, height);
-    for (let c of barcode) {
-      if (c == '1') {
-        context.fillRect(x, 0, X_DIMENSION, height);
-      }
-      x += X_DIMENSION;
-    }
-  }
-}
-
-class TableDisplay extends Display {
-  draw(barcode) {
-    let target = this.parent.querySelector('table');
-    if (target == null) {
-      this.parent.innerHTML = '';
-      target = document.createElement('table');
-      this.parent.appendChild(target);
-    }
-
-    let row = [];
-    row.push('  <tr>');
-    for (let c of barcode) {
-      if (c == '0') {
-        row.push('  <td></td>');
-      }
-      else if (c == '1') {
-        row.push('  <td class="bar"></td>');
-      }
-    }
-    row.push('  </tr>');
-    target.innerHTML = row.join('\n');
+  else {
+    // Clear the old barcode
+    drawBarcode(parentID, '', height);
   }
 }
 
 let form = document.querySelector('#barcodeForm');
 form.addEventListener('submit', (event) => {
-  let output = document.querySelector('#upcaBarcode'),
-//      display = new ASCIIDisplay(output);
-      display = new CanvasDisplay(output);
-//      display = new TableDisplay(output);
-  display.draw(numberToUPCA(form.upcaNumber.value));
+  let raw = form.number.value,
+      num, eanNum;
+  if (isNumber(raw, 12)) {
+    num = raw;
+    // Every UPC-A code can be easily converted to the equivalent EAN-13 code by prepending "0" to the UPC-A code.
+    eanNum = '0' + raw;
+  }
+  if (isNumber(raw, 13)) {
+    num = raw.substring(1);
+    eanNum = raw;
+  }
+  if (isNumber(num, 12) && isNumber(eanNum, 13)) {
+    drawUPCA('#upcaBarcode', num);
+    drawUPCA('#eanBarcode', eanNum);
+    drawUPCE('#upceBarcode', num);
+  }
   event.preventDefault();
 });
 </script>
