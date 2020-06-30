@@ -47,7 +47,7 @@ td {
 <main>
 <h1>Universal Product Code (UPC) Barcode</h1>
 
-<form id="upcaForm" name="upcaForm" action="" method="get">
+<form id="barcodeForm" name="barcodeForm" action="" method="get">
 <p><label for="upcaNumber">UPC-A number:</label>
 <input type="text" id="upcaNumber" name="upcaNumber" autofocus required maxlength="12" minlength="12" pattern="[0-9]{12,12}" placeholder="042100005264" spellcheck="false">
 <button type="submit">Draw</button></p>
@@ -57,13 +57,18 @@ td {
 <p><a href="https://en.wikipedia.org/wiki/Universal_Product_Code" target="_blank">UPC-A</a>
 consists of 12 numeric digits represented by strips of black bars and white spaces.</p>
 
-<output id="upcaBarcode" name="upca" for="upcaNumber"></output>
+<output id="upcaBarcode" name="upca" for="barcodeForm"></output>
 
 <p>Every UPC-A code can be easily converted to the equivalent
 <a href="https://en.wikipedia.org/wiki/International_Article_Number_(EAN)" target="_blank">EAN-13</a>
 code by prepending "0" to the UPC-A code.</p>
 
-<output id="eanBarcode" name="ean"></output>
+<output id="eanBarcode" name="ean" for="barcodeForm"></output>
+
+<p>UPC-E is a zero-suppressed version of UPC to allow the use of UPC barcodes on smaller packages.
+It can only correspond to certain UPC-A numbers starting with 0 or 1.</p>
+
+<output id="upceBarcode" name="upce" for="barcodeForm"></output>
 </article>
 </main>
 
@@ -71,7 +76,7 @@ code by prepending "0" to the UPC-A code.</p>
 /*
  * Regular expression matching a valid number: string of digits.
  */
-const NUMBER_REGULAR_EXPRESSION = /^(\d{12,12})$/;
+const NUMBER_REGULAR_EXPRESSION = /^(\d+)$/;
 
 /*
  * Regular expression matching a valid pattern: string of "0" and "1".
@@ -103,20 +108,71 @@ const UPCA_MAP = new Map([
   ['9', '0001011']
 ]);
 
-function isNumber(str) {
-  return NUMBER_REGULAR_EXPRESSION.test(str);
-}
+/*
+ * Map from a check digit to its UPC-E parity pattern for number system 0.
+ * Invert the pattern for number system 1.
+ */
+const PARITY_MAP = new Map([
+  ['0', '111000'],
+  ['1', '110100'],
+  ['2', '110010'],
+  ['3', '110001'],
+  ['4', '101100'],
+  ['5', '100110'],
+  ['6', '100011'],
+  ['7', '101010'],
+  ['8', '101001'],
+  ['9', '100101']
+]);
 
-function isPattern(str) {
-  return PATTERN_REGULAR_EXPRESSION.test(str);
+/*
+ * Map from a character for UPC-E to its module pattern.
+ */
+const UPCE_MAP = new Map([
+  ['S', '101'],
+  ['E', '010101'],
+  ['0', '0100111'],
+  ['1', '0110011'],
+  ['2', '0011011'],
+  ['3', '0100001'],
+  ['4', '0011101'],
+  ['5', '0111001'],
+  ['6', '0000101'],
+  ['7', '0010001'],
+  ['8', '0001001'],
+  ['9', '0010111']
+]);
+
+/*
+ * Return if str is a length long string of digits.
+ */
+function isNumber(str, length) {
+  if ((length === undefined) || (length <= 0)) {
+    return NUMBER_REGULAR_EXPRESSION.test(str);
+  }
+  else if (NUMBER_REGULAR_EXPRESSION.test(str)) {
+    return str.length == length;
+  }
+  return false;
 }
 
 /*
- * Invert a module pattern.
+ * Return if str is a length long string of "0" and "1".
+ */
+function isPattern(str, length) {
+  if ((length === undefined) || (length <= 0)) {
+    return PATTERN_REGULAR_EXPRESSION.test(str);
+  }
+  else if (PATTERN_REGULAR_EXPRESSION.test(str)) {
+    return str.length == length;
+  }
+  return false;
+}
+
+/*
+ * Invert a module pattern by replacing "0" with "1" and vice versa.
  */
 function invert(pattern) {
-  console.assert(isPattern(pattern),
-                 {msg: 'pattern must contain only "0" and "1".'});
   let inverse = [];
   for (let c of pattern) {
     if (c == '0') {
@@ -129,14 +185,16 @@ function invert(pattern) {
   return inverse.join('');
 }
 
-console.log(invert('0101'));
-
-function numberToUPCA(upcNumber) {
-  console.assert(isNumber(upcNumber),
-                 {msg: 'upcNumber contains non-digit characters.'});
-  let module = [UPCA_MAP.get('Q'), UPCA_MAP.get('S')],
+/*
+ * Return the UPC-A barcode pattern encoding num.
+ * "0" indicates a space.
+ * "1" indicates a bar.
+ */
+function numberToUPCA(num) {
+  let productNumber = num.substring(num.length - 12),
+      module = [UPCA_MAP.get('Q'), UPCA_MAP.get('S')],
       i = 0;
-  for (let c of upcNumber) {
+  for (let c of productNumber) {
     let pattern = UPCA_MAP.get(c);
     if (i >= 6) {
       if (i == 6) {
@@ -152,7 +210,151 @@ function numberToUPCA(upcNumber) {
   return module.join('');
 }
 
-console.log(numberToUPCA('042100005264'));
+/*
+ * Return the UPC-E barcode pattern encoding num.
+ * "0" indicates a space.
+ * "1" indicates a bar.
+ */
+function numberToUPCE(num) {
+  let productNumber = num.substring(num.length - 12),
+      check = productNumber.charAt(num.length - 1),
+      system = productNumber.charAt(0),
+      upcE = '',
+      parity = PARITY_MAP.get(check),
+      module = [UPCE_MAP.get('S')],
+      i = 0;
+  if ((system != '0') && (system != '1') && (!productNumber.includes('0000'))) {
+    return '';
+  }
+  if (productNumber.substring(3, 8) == '00000') {
+    // UPC-E numerical pattern 0
+    upcE = productNumber.substring(1, 3) + productNumber.substring(8, 11) + '0';
+  }
+  else if (productNumber.substring(3, 8) == '10000') {
+    // UPC-E numerical pattern 1
+    upcE = productNumber.substring(1, 3) + productNumber.substring(8, 11) + '1';
+  }
+  else if (productNumber.substring(3, 8) == '20000') {
+    // UPC-E numerical pattern 2
+    upcE = productNumber.substring(1, 3) + productNumber.substring(8, 11) + '2';
+  }
+  else if (productNumber.substring(4, 9) == '00000') {
+    // UPC-E numerical pattern 3
+    upcE = productNumber.substring(1, 4) + productNumber.substring(9, 11) + '3';
+  }
+  else if (productNumber.substring(5, 10) == '00000') {
+    // UPC-E numerical pattern 4
+    upcE = productNumber.substring(1, 5) + productNumber.substring(10, 11) + '4';
+  }
+  else if ((productNumber.substring(6, 11) == '00005') ||
+           (productNumber.substring(6, 11) == '00006') ||
+           (productNumber.substring(6, 11) == '00007') ||
+           (productNumber.substring(6, 11) == '00008') ||
+           (productNumber.substring(6, 11) == '00009')) {
+    // UPC-E numerical patterns 5 through 9
+    upcE = productNumber.substring(1, 6) + productNumber.substring(10, 11);
+  }
+  else {
+    return '';
+  }
+
+  if (system == '1') {
+    parity = invert(parity);
+  }
+  for (let c of upcE) {
+    let pattern = UPCA_MAP.get(c);
+    if (parity.charAt(i) == '1') {
+      pattern = UPCE_MAP.get(c);
+    }
+    module.push(pattern);
+    i += 1;
+  }
+  module.push(UPCE_MAP.get('E'));
+  return module.join('');
+}
+
+/*
+ * Unit tests
+ */
+function test() {
+  for (let value of ['', 'abcd', 'foo', 'f00', '8ar', 'foobar', 'f008ar']) {
+    console.assert(!isNumber(value),
+                   {msg: 'isNumber() is incorrect.'});
+    console.assert(!isPattern(value),
+                   {msg: 'isPattern() is incorrect.'});
+  }
+  for (let value of ['41', '1234', '042100005264', '0042100005264',
+                     '065100004327', '165100004324']) {
+    console.assert(isNumber(value),
+                   {msg: 'isNumber() is incorrect.'});
+    console.assert(isNumber(value, value.length),
+                   {msg: 'isNumber() is incorrect.'});
+    console.assert(!isNumber(value, 3),
+                   {msg: 'isNumber() is incorrect.'});
+    console.assert(!isPattern(value),
+                   {msg: 'isPattern() is incorrect.'});
+    let pattern = numberToUPCA(value);
+    console.assert(isPattern(pattern),
+                   {msg: 'isPattern() is incorrect.'});
+    console.assert(pattern.startsWith(UPCA_MAP.get('Q')),
+                   {msg: 'pattern is incorrect.'});
+    console.assert(pattern.endsWith(UPCA_MAP.get('Q')),
+                   {msg: 'pattern is incorrect.'});
+    console.assert(pattern.startsWith(UPCA_MAP.get('Q') + UPCA_MAP.get('S')),
+                   {msg: 'pattern is incorrect.'});
+    console.assert(pattern.endsWith(UPCA_MAP.get('E') + UPCA_MAP.get('Q')),
+                   {msg: 'pattern is incorrect.'});
+    console.assert(pattern.includes(UPCA_MAP.get('1')),
+                   {msg: 'pattern is incorrect.'});
+  }
+  for (let [value, expected] of [
+    ['0', '1'],
+    ['1', '0'],
+    ['00', '11'],
+    ['01', '10'],
+    ['10', '01'],
+    ['11', '00'],
+    ['000', '111'],
+    ['001', '110'],
+    ['010', '101'],
+    ['011', '100'],
+    ['100', '011'],
+    ['101', '010'],
+    ['110', '001'],
+    ['111', '000']
+  ]) {
+    console.assert(isNumber(value),
+                   {msg: 'isNumber() is incorrect.'});
+    console.assert(isNumber(expected),
+                   {msg: 'isNumber() is incorrect.'});
+    console.assert(isPattern(value),
+                   {msg: 'isPattern() is incorrect.'});
+    console.assert(isPattern(expected),
+                   {msg: 'isPattern() is incorrect.'});
+    console.assert(isPattern(value, value.length),
+                   {msg: 'isPattern() is incorrect.'});
+    console.assert(isPattern(expected, expected.length),
+                   {msg: 'isPattern() is incorrect.'});
+    console.assert(!isPattern(value, 10),
+                   {msg: 'isPattern() is incorrect.'});
+    console.assert(!isPattern(expected, 10),
+                   {msg: 'isPattern() is incorrect.'});
+    console.assert(invert(value) == expected,
+                   {msg: 'invert() is incorrect.'});
+  }
+  console.assert(numberToUPCA('042100005264') == '00000000010100011010100011001001100110010001101000110101010111001011100101001110110110010100001011100101000000000',
+                 {msg: 'numberToUPCA() is incorrect.'});
+
+  for (let value of ['', '2', '3', '4', '5', '6', '7', '8', '9', '1234']) {
+    console.assert(numberToUPCE(value) == '',
+                   {msg: 'numberToUPCE() is incorrect.'});
+  }
+  console.assert(numberToUPCE('065100004327') == '101000010101100010011101011110100110110011001010101',
+                 {msg: 'numberToUPCE() is incorrect.'});
+  console.assert(numberToUPCE('165100004324') == '101010111101110010100011011110100110110110011010101',
+                 {msg: 'numberToUPCE() is incorrect.'});
+}
+test();
 
 class Display {
   constructor(parent) {
@@ -239,7 +441,7 @@ class TableDisplay extends Display {
   }
 }
 
-let form = document.querySelector('#upcaForm');
+let form = document.querySelector('#barcodeForm');
 form.addEventListener('submit', (event) => {
   let output = document.querySelector('#upcaBarcode'),
 //      display = new ASCIIDisplay(output);
