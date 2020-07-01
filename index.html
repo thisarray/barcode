@@ -59,7 +59,7 @@ const NUMBER_REGULAR_EXPRESSION = /^(\d+)$/;
 const PATTERN_REGULAR_EXPRESSION = /^([01]+)$/;
 
 /*
- * Width of each bar in number of pixels (also known as the x-dimension for UPC-A).
+ * Width in pixels of each bar (also known as the x-dimension for UPC-A).
  */
 const X_DIMENSION = 2;
 
@@ -254,23 +254,27 @@ function numberToUPCE(num) {
 function test() {
   for (let value of ['', 'abcd', 'foo', 'f00', '8ar', 'foobar', 'f008ar']) {
     console.assert(!isNumber(value),
-                   {msg: 'isNumber() is incorrect.'});
+                   {msg: 'isNumber() failed.'});
+    console.assert(!isNumber(value, value.length),
+                   {msg: 'isNumber() failed.'});
     console.assert(!isPattern(value),
-                   {msg: 'isPattern() is incorrect.'});
+                   {msg: 'isPattern() failed.'});
+    console.assert(!isPattern(value, value.length),
+                   {msg: 'isPattern() failed.'});
   }
   for (let value of ['41', '1234', '042100005264', '0042100005264',
                      '065100004327', '165100004324']) {
     console.assert(isNumber(value),
-                   {msg: 'isNumber() is incorrect.'});
+                   {msg: 'isNumber() failed.'});
     console.assert(isNumber(value, value.length),
-                   {msg: 'isNumber() is incorrect.'});
+                   {msg: 'isNumber() failed.'});
     console.assert(!isNumber(value, 3),
-                   {msg: 'isNumber() is incorrect.'});
+                   {msg: 'isNumber() failed.'});
     console.assert(!isPattern(value),
-                   {msg: 'isPattern() is incorrect.'});
+                   {msg: 'isPattern() failed.'});
     let pattern = numberToUPCA(value);
     console.assert(isPattern(pattern),
-                   {msg: 'isPattern() is incorrect.'});
+                   {msg: 'isPattern() failed.'});
     console.assert(pattern.startsWith(UPCA_MAP.get('Q')),
                    {msg: 'pattern is incorrect.'});
     console.assert(pattern.endsWith(UPCA_MAP.get('Q')),
@@ -299,44 +303,44 @@ function test() {
     ['111', '000']
   ]) {
     console.assert(isNumber(value),
-                   {msg: 'isNumber() is incorrect.'});
+                   {msg: 'isNumber() failed.'});
     console.assert(isNumber(expected),
-                   {msg: 'isNumber() is incorrect.'});
+                   {msg: 'isNumber() failed.'});
     console.assert(isPattern(value),
-                   {msg: 'isPattern() is incorrect.'});
+                   {msg: 'isPattern() failed.'});
     console.assert(isPattern(expected),
-                   {msg: 'isPattern() is incorrect.'});
+                   {msg: 'isPattern() failed.'});
     console.assert(isPattern(value, value.length),
-                   {msg: 'isPattern() is incorrect.'});
+                   {msg: 'isPattern() failed.'});
     console.assert(isPattern(expected, expected.length),
-                   {msg: 'isPattern() is incorrect.'});
+                   {msg: 'isPattern() failed.'});
     console.assert(!isPattern(value, 10),
-                   {msg: 'isPattern() is incorrect.'});
+                   {msg: 'isPattern() failed.'});
     console.assert(!isPattern(expected, 10),
-                   {msg: 'isPattern() is incorrect.'});
+                   {msg: 'isPattern() failed.'});
     console.assert(invert(value) == expected,
-                   {msg: 'invert() is incorrect.'});
+                   {msg: 'invert() failed.'});
   }
   console.assert(numberToUPCA('042100005264') == '00000000010100011010100011001001100110010001101000110101010111001011100101001110110110010100001011100101000000000',
-                 {msg: 'numberToUPCA() is incorrect.'});
+                 {msg: 'numberToUPCA() failed.'});
 
   for (let value of ['', '2', '3', '4', '5', '6', '7', '8', '9', '1234']) {
     let [barcode, upcE] = numberToUPCE(value);
     console.assert(barcode == '',
-                   {msg: 'numberToUPCE() is incorrect.'});
+                   {msg: 'numberToUPCE() failed.'});
     console.assert(upcE == '',
-                   {msg: 'numberToUPCE() is incorrect.'});
+                   {msg: 'numberToUPCE() failed.'});
   }
   let [barcode, upcE] = numberToUPCE('065100004327');
   console.assert(barcode == '101000010101100010011101011110100110110011001010101',
-                 {msg: 'numberToUPCE() is incorrect.'});
+                 {msg: 'numberToUPCE() failed.'});
   console.assert(upcE == '654321',
-                 {msg: 'numberToUPCE() is incorrect.'});
+                 {msg: 'numberToUPCE() failed.'});
   [barcode, upcE] = numberToUPCE('165100004324');
   console.assert(barcode == '101010111101110010100011011110100110110110011010101',
-                 {msg: 'numberToUPCE() is incorrect.'});
+                 {msg: 'numberToUPCE() failed.'});
   console.assert(upcE == '654321',
-                 {msg: 'numberToUPCE() is incorrect.'});
+                 {msg: 'numberToUPCE() failed.'});
 }
 test();
 
