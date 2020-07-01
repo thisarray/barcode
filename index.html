@@ -192,7 +192,7 @@ function numberToUPCA(num) {
  */
 function numberToUPCE(num) {
   let productNumber = num.substring(num.length - 12),
-      check = productNumber.charAt(num.length - 1),
+      check = productNumber.charAt(11),
       system = productNumber.charAt(0),
       upcE = '',
       parity = PARITY_MAP.get(check),
