@@ -22,9 +22,10 @@ output {
 <main>
 <h1>Universal Product Code (UPC) Barcode</h1>
 
-<form id="barcodeForm" name="barcodeForm" action="" method="get">
-<p><label for="number">UPC-A or EAN-13 number:</label>
+<form id="barcodeForm" name="barcodeForm">
+<p><label>UPC-A or EAN-13 number:
 <input type="text" id="number" name="number" autofocus required maxlength="13" minlength="12" pattern="[0-9]{12,13}" placeholder="042100005264" spellcheck="false">
+</label>
 <button type="submit">Draw</button></p>
 </form>
 
@@ -59,7 +60,7 @@ const NUMBER_REGULAR_EXPRESSION = /^(\d+)$/;
 const PATTERN_REGULAR_EXPRESSION = /^([01]+)$/;
 
 /*
- * Width in pixels of each bar (also known as the x-dimension for UPC-A).
+ * Integer width in pixels of each bar (also known as the x-dimension for UPC-A).
  */
 const X_DIMENSION = 2;
 
@@ -119,7 +120,7 @@ const UPCE_MAP = new Map([
 ]);
 
 /*
- * Return if str is a length long string of digits.
+ * Return true if str is a length long string of digits.
  */
 function isNumber(str, length = -1) {
   if ((length == undefined) || (length <= 0)) {
@@ -132,7 +133,7 @@ function isNumber(str, length = -1) {
 }
 
 /*
- * Return if str is a length long string of "0" and "1".
+ * Return true if str is a length long string of "0" and "1".
  */
 function isPattern(str, length = -1) {
   if ((length == undefined) || (length <= 0)) {
@@ -178,7 +179,7 @@ function numberToUPCA(num) {
       pattern = invert(pattern);
     }
     module.push(pattern);
-    i += 1;
+    i++;
   }
   module.push(UPCA_MAP.get('E'));
   module.push(UPCA_MAP.get('Q'));
@@ -242,7 +243,7 @@ function numberToUPCE(num) {
       pattern = UPCE_MAP.get(c);
     }
     module.push(pattern);
-    i += 1;
+    i++;
   }
   module.push(UPCE_MAP.get('E'));
   return [module.join(''), upcE];
