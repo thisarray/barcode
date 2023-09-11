@@ -423,9 +423,9 @@ function drawUPCE(parentID, num) {
   }
 }
 
-const form = document.querySelector('#barcodeForm');
-form.addEventListener('submit', (event) => {
-  let raw = form.number.value,
+const FORM = document.querySelector('#barcodeForm');
+FORM.addEventListener('submit', (event) => {
+  let raw = FORM.number.value,
       num, eanNum;
   if (isNumber(raw, 12)) {
     num = raw;
