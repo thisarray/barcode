@@ -357,19 +357,20 @@ test();
 function drawBarcode(parentID, barcode, height) {
   let parent = document.querySelector(parentID),
       target = parent.querySelector('canvas'),
-      width = barcode.length * X_DIMENSION;
+      width = barcode.length * X_DIMENSION,
+      x = 0,
+      context;
   if (target == null) {
     parent.innerHTML = '';
     target = document.createElement('canvas');
     parent.appendChild(target);
   }
-  if ((target.width != width) || (target.height != height)) {
+  if ((target.width !== width) || (target.height !== height)) {
     target.width = width;
     target.height = height;
   }
 
-  let context = target.getContext('2d'),
-      x = 0;
+  context = target.getContext('2d');
   context.clearRect(0, 0, width, height);
   for (let c of barcode) {
     if (c === '1') {
