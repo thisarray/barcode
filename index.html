@@ -169,9 +169,10 @@ function invert(pattern) {
 function numberToUPCA(num) {
   let productNumber = num.substring(num.length - 12),
       module = [UPCA_MAP.get('Q'), UPCA_MAP.get('S')],
-      i = 0;
+      i = 0,
+      pattern;
   for (let c of productNumber) {
-    let pattern = UPCA_MAP.get(c);
+    pattern = UPCA_MAP.get(c);
     if (i >= 6) {
       if (i === 6) {
         module.push(UPCA_MAP.get('M'));
@@ -198,7 +199,8 @@ function numberToUPCE(num) {
       upcE = '',
       parity = PARITY_MAP.get(check),
       module = [UPCE_MAP.get('S')],
-      i = 0;
+      i = 0,
+      pattern;
   if ((system !== '0') && (system !== '1') && (!productNumber.includes('0000'))) {
     return ['', ''];
   }
@@ -238,7 +240,7 @@ function numberToUPCE(num) {
     parity = invert(parity);
   }
   for (let c of upcE) {
-    let pattern = UPCA_MAP.get(c);
+    pattern = UPCA_MAP.get(c);
     if (parity.charAt(i) === '1') {
       pattern = UPCE_MAP.get(c);
     }
